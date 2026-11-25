@@ -6,7 +6,7 @@ service cloud.firestore {
     // Firebase console → Authentication → Users.
     function isAdmin() {
       return request.auth != null
-        && request.auth.token.email in ['admin@example.com'];
+        && request.auth.token.email in ['admin@eyebrows.com'];
     }
 
     // Service menu & reward rules: anyone can read (public site), only admins edit.

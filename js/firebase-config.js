@@ -5,12 +5,12 @@
 // your data is protected by firestore.rules.)
 // ============================================================
 export const firebaseConfig = {
-  apiKey:            'YOUR_API_KEY',
-  authDomain:        'YOUR_PROJECT_ID.firebaseapp.com',
-  projectId:         'YOUR_PROJECT_ID',
-  storageBucket:     'YOUR_PROJECT_ID.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId:             'YOUR_APP_ID',
+  apiKey:            'AIzaSyC_5HjyinT9xWQHjXbvQT340liu7twDByU',
+  authDomain:        'new-special-eyebrows.firebaseapp.com',
+  projectId:         'new-special-eyebrows',
+  storageBucket:     'new-special-eyebrows.firebasestorage.app',
+  messagingSenderId: '170493104016',
+  appId:             '1:170493104016:web:c98d87b8155d461e2cad15',
 };
 // ============================================================
 
