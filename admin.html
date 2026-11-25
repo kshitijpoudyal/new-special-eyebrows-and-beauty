@@ -83,6 +83,10 @@ tailwind.config = {
   .schip:hover:not(.on) { border-color:#775a19; color:#775a19; }
   .schip.on { background:#ffdea5; border-color:#775a19; color:#261900; font-weight:700; }
 
+  .appt-chip { display:inline-flex; align-items:center; gap:.3rem; padding:.2rem .65rem; border-radius:9999px; font-size:.65rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+  .st-pending { background:#ffdea5; color:#261900; }
+  .st-accepted { background:#ffd9df; color:#8b1040; }
+  .st-rejected, .st-cancelled { background:#eae8e6; color:#574145; }
   dialog { border:none; padding:0; background:transparent; max-width:min(32rem, calc(100vw - 2rem)); width:100%; }
   dialog::backdrop { background:rgba(27,28,27,.3); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
 
@@ -132,16 +136,34 @@ tailwind.config = {
       </div>
     </div>
     <nav class="max-w-screen-xl mx-auto px-4 md:px-8 pb-3 flex gap-2 overflow-x-auto" role="tablist">
-      <button class="tab on" data-tab="rewards" role="tab">Rewards</button>
+      <button class="tab on" data-tab="appointments" role="tab">Appointments <span id="pending-badge" class="ml-1 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-primary text-white text-[10px] tracking-normal" hidden></span></button>
+      <button class="tab" data-tab="rewards" role="tab">Rewards</button>
       <button class="tab" data-tab="services" role="tab">Services &amp; Prices</button>
-      <button class="tab" data-tab="settings" role="tab">Reward Rules</button>
+      <button class="tab" data-tab="settings" role="tab">Settings</button>
     </nav>
   </header>
 
   <main class="max-w-screen-xl mx-auto px-4 md:px-8 py-6 md:py-10 pb-24">
 
+    <!-- ===== APPOINTMENTS TAB ===== -->
+    <section id="tab-appointments">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+        <div>
+          <span class="text-secondary font-bold tracking-[0.3em] uppercase text-xs mb-2 block">Bookings</span>
+          <h2 class="font-serif text-3xl md:text-4xl text-on-background">Appointments</h2>
+        </div>
+        <div id="appt-filters" class="flex gap-2 overflow-x-auto">
+          <button class="schip on" data-filter="pending">Pending</button>
+          <button class="schip" data-filter="upcoming">Upcoming</button>
+          <button class="schip" data-filter="past">Past</button>
+          <button class="schip" data-filter="closed">Declined</button>
+        </div>
+      </div>
+      <div id="appt-list" class="space-y-8"></div>
+    </section>
+
     <!-- ===== REWARDS TAB ===== -->
-    <section id="tab-rewards">
+    <section id="tab-rewards" hidden>
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- Member list -->
         <div class="lg:col-span-5 bg-surface-container-lowest rounded-[2rem] p-5 md:p-6 ambient-bloom self-start">
@@ -181,10 +203,11 @@ tailwind.config = {
 
       <!-- Add service -->
       <form id="add-svc-form" class="bg-surface-container-lowest rounded-[2rem] p-5 md:p-6 ambient-bloom mb-6 grid grid-cols-1 sm:grid-cols-12 gap-4 sm:gap-6 items-end" novalidate>
-        <div class="e-group sm:col-span-5"><label class="e-label mb-1" for="svc-name">New service</label><input id="svc-name" class="e-input" placeholder="e.g. Lash Lift" required/></div>
+        <div class="e-group sm:col-span-4"><label class="e-label mb-1" for="svc-name">New service</label><input id="svc-name" class="e-input" placeholder="e.g. Lash Lift" required/></div>
         <div class="e-group sm:col-span-3"><label class="e-label mb-1" for="svc-cat">Category</label><select id="svc-cat" class="e-input"></select></div>
         <div class="e-group sm:col-span-2"><label class="e-label mb-1" for="svc-price">Price ($)</label><input id="svc-price" class="e-input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" required/></div>
-        <button class="btn btn-primary sm:col-span-2"><span class="material-symbols-outlined" style="font-size:18px">add</span>Add</button>
+        <div class="e-group sm:col-span-2"><label class="e-label mb-1" for="svc-dur">Duration</label><select id="svc-dur" class="e-input"></select></div>
+        <button class="btn btn-primary sm:col-span-1"><span class="material-symbols-outlined" style="font-size:18px">add</span>Add</button>
       </form>
 
       <div id="svc-list" class="space-y-6"></div>
@@ -193,9 +216,18 @@ tailwind.config = {
     <!-- ===== SETTINGS TAB ===== -->
     <section id="tab-settings" hidden>
       <div class="mb-6">
-        <span class="text-secondary font-bold tracking-[0.3em] uppercase text-xs mb-2 block">Loyalty</span>
-        <h2 class="font-serif text-3xl md:text-4xl text-on-background">Reward Rules</h2>
+        <span class="text-secondary font-bold tracking-[0.3em] uppercase text-xs mb-2 block">Studio</span>
+        <h2 class="font-serif text-3xl md:text-4xl text-on-background">Settings</h2>
       </div>
+      <form id="booking-form" class="bg-surface-container-lowest rounded-[2rem] p-6 md:p-8 ambient-bloom mb-6 flex flex-col md:flex-row md:items-end gap-6" novalidate>
+        <div class="flex-1">
+          <div class="flex items-center gap-3 mb-4"><span class="material-symbols-outlined text-primary">event_available</span><h3 class="font-serif text-xl">Booking</h3></div>
+          <div class="e-group max-w-xs"><label class="e-label mb-1" for="set-capacity">Customers you can take at the same time</label><input id="set-capacity" class="e-input" type="number" min="1" max="20" step="1" required/></div>
+          <p class="text-tertiary text-xs mt-3 max-w-lg">A time shows as unavailable on the website once this many pending or accepted bookings overlap it. Declining or cancelling a booking frees its time.</p>
+        </div>
+        <button class="btn btn-primary self-start md:self-end">Save booking settings</button>
+      </form>
+      <p class="text-secondary font-bold tracking-[0.3em] uppercase text-xs mb-4">Rewards</p>
       <form id="settings-form" class="grid grid-cols-1 md:grid-cols-2 gap-6" novalidate>
         <div class="bg-surface-container-lowest rounded-[2rem] p-6 md:p-8 ambient-bloom space-y-6">
           <div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary">confirmation_number</span><h3 class="font-serif text-xl">Visit punch card</h3></div>
@@ -239,7 +271,9 @@ tailwind.config = {
 <!-- ===== TOAST ===== -->
 <div id="toast" class="fixed bottom-6 left-1/2 z-[100] px-5 py-3 rounded-full text-sm font-semibold ambient-bloom opacity-0 pointer-events-none" style="transform:translate(-50%,12px)" role="status" aria-live="polite"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="js/services-data.js"></script>
+<script src="js/emailjs-config.js"></script>
 <script type="module" src="js/admin.js"></script>
 </body>
 </html>
