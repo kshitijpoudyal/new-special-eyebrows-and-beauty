@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta name="robots" content="noindex, nofollow"/>
+<title>Studio Admin | New Special Eyebrows &amp; Beauty</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "error":"#ba1a1a","on-tertiary-fixed-variant":"#653759","secondary":"#775a19",
+        "primary-container":"#c9446d","surface-variant":"#e5e2e0","on-tertiary":"#ffffff",
+        "primary-fixed-dim":"#ffb1c2","surface":"#fcf9f7","on-primary-container":"#fffbff",
+        "surface-container":"#f0edeb","surface-bright":"#fcf9f7","inverse-on-surface":"#f3f0ee",
+        "on-primary":"#ffffff","on-secondary-fixed":"#261900","on-error-container":"#93000a",
+        "inverse-surface":"#30302f","primary":"#a82a55","surface-container-low":"#f6f3f1",
+        "outline-variant":"#ddbfc4","on-secondary-container":"#785a1a","on-background":"#1b1c1b",
+        "on-tertiary-container":"#fffbff","background":"#fcf9f7","tertiary-fixed-dim":"#f1b4dd",
+        "on-surface":"#1b1c1b","primary-fixed":"#ffd9df","on-secondary-fixed-variant":"#5d4201",
+        "surface-container-high":"#eae8e6","outline":"#8a7175","surface-dim":"#dcd9d8",
+        "on-error":"#ffffff","surface-container-lowest":"#ffffff","inverse-primary":"#ffb1c2",
+        "on-primary-fixed-variant":"#8b1040","tertiary-container":"#986488","on-secondary":"#ffffff",
+        "tertiary":"#7d4c6f","on-surface-variant":"#574145","error-container":"#ffdad6",
+        "secondary-fixed-dim":"#e9c176","surface-tint":"#ab2d57","secondary-container":"#fed488",
+        "on-primary-fixed":"#3f0018","on-tertiary-fixed":"#330b2b","tertiary-fixed":"#ffd7ef",
+        "surface-container-highest":"#e5e2e0","secondary-fixed":"#ffdea5"
+      },
+      borderRadius: { "DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px" },
+      fontFamily: { "headline":["Noto Serif"],"body":["Manrope"],"label":["Manrope"] }
+    }
+  }
+}
+</script>
+<style>
+  body { font-family:'Manrope',sans-serif; background-color:#fcf9f7; color:#1b1c1b; }
+  .font-serif { font-family:'Noto Serif',serif; }
+  .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; vertical-align:middle; line-height:1; }
+  .ambient-bloom { box-shadow:0 20px 40px -15px rgba(27,28,27,0.07); }
+  .gradient-btn { background:linear-gradient(135deg,#a82a55 0%,#c9446d 100%); }
+  [hidden] { display:none !important; }
+
+  .e-input {
+    background:transparent; border:none; border-bottom:1.5px solid rgba(221,191,196,0.45);
+    border-radius:0; padding:0.6rem 0; outline:none; width:100%;
+    font-family:'Manrope',sans-serif; font-size:1rem; color:#1b1c1b; transition:border-color 0.3s;
+  }
+  .e-input:focus { border-bottom:2px solid #775a19; box-shadow:none; }
+  .e-input::placeholder { color:rgba(87,65,69,0.45); }
+  select.e-input { padding-right:1.5rem; background-position:right 0 center; }
+  .e-group:focus-within .e-label { color:#a82a55; }
+  .e-label { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:#574145; transition:color 0.3s; display:block; }
+
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:.4rem; border-radius:9999px; font-weight:700; font-size:.8rem; letter-spacing:.06em; text-transform:uppercase; transition:transform .15s, background .2s, opacity .2s; min-height:2.6rem; padding:0 1.25rem; }
+  .btn:active:not(:disabled) { transform:scale(.97); }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+  .btn-primary { background:linear-gradient(135deg,#a82a55 0%,#c9446d 100%); color:#fff; }
+  .btn-gold { background:#fff; color:#775a19; border:1px solid rgba(119,90,25,.3); }
+  .btn-gold:hover:not(:disabled) { background:rgba(119,90,25,.05); }
+  .btn-soft { background:#f0edeb; color:#7d4c6f; }
+  .btn-soft:hover:not(:disabled) { background:#eae8e6; }
+  .btn-text { color:#a82a55; text-decoration:underline; text-underline-offset:4px; text-decoration-color:rgba(168,42,85,.3); font-weight:600; font-size:.8rem; }
+  .btn-text:hover { color:#775a19; }
+  .btn-danger { color:#ba1a1a; }
+
+  .tab { white-space:nowrap; flex-shrink:0; padding:.55rem 1.1rem; border-radius:9999px; font-weight:700; font-size:.8rem; letter-spacing:.08em; text-transform:uppercase; color:#7d4c6f; transition:background .2s; }
+  .tab:hover { background:#f0edeb; }
+  .tab.on { background:#ffdea5; color:#261900; }
+
+  .mrow { display:block; width:100%; text-align:left; padding:.85rem 1rem; border-radius:1rem; transition:background .2s; }
+  .mrow:hover { background:#f6f3f1; }
+  .mrow.on { background:#ffdea5; }
+
+  .punch { width:1.9rem; height:1.9rem; border-radius:9999px; display:flex; align-items:center; justify-content:center; background:#eae8e6; color:transparent; }
+  .punch.on { background:linear-gradient(135deg,#a82a55,#c9446d); color:#fff; }
+
+  .schip { padding:.45rem .85rem; border-radius:9999px; border:1px solid rgba(221,191,196,.4); font-size:.8rem; font-weight:500; background:#fff; color:#574145; cursor:pointer; transition:all .2s; user-select:none; }
+  .schip:hover:not(.on) { border-color:#775a19; color:#775a19; }
+  .schip.on { background:#ffdea5; border-color:#775a19; color:#261900; font-weight:700; }
+
+  dialog { border:none; padding:0; background:transparent; max-width:min(32rem, calc(100vw - 2rem)); width:100%; }
+  dialog::backdrop { background:rgba(27,28,27,.3); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
+
+  #toast { transition:opacity .25s, transform .25s; }
+  #toast.show { opacity:1; transform:translate(-50%,0); }
+</style>
+</head>
+<body class="bg-surface min-h-screen selection:bg-primary-fixed selection:text-on-primary-fixed-variant">
+
+<!-- ===== SETUP NOTICE (Firebase not configured) ===== -->
+<section id="setup-view" class="min-h-screen flex items-center justify-center px-4" hidden>
+  <div class="w-full max-w-lg bg-surface-container-lowest rounded-[2rem] p-8 md:p-10 ambient-bloom">
+    <span class="text-secondary font-bold tracking-[0.3em] uppercase text-xs mb-3 block">Setup needed</span>
+    <h1 class="font-serif text-3xl text-on-background mb-4">Connect Firebase</h1>
+    <p class="text-tertiary text-sm leading-relaxed mb-4">The admin page stores rewards members and the service menu in Firebase. Paste your project's web config into <code class="bg-surface-container px-1.5 py-0.5 rounded">js/firebase-config.js</code>, then reload this page.</p>
+    <p class="text-tertiary text-sm leading-relaxed">Step-by-step instructions are in <code class="bg-surface-container px-1.5 py-0.5 rounded">README.md</code>.</p>
+    <a href="index.html" class="btn-text inline-block mt-6">Back to website</a>
+  </div>
+</section>
+
+<!-- ===== LOGIN ===== -->
+<section id="login-view" class="min-h-screen flex items-center justify-center px-4" hidden>
+  <form id="login-form" class="w-full max-w-md bg-surface-container-lowest rounded-[2rem] p-8 md:p-10 ambient-bloom" novalidate>
+    <a href="index.html" class="font-serif italic text-secondary tracking-tight text-lg">New Special Eyebrows &amp; Beauty</a>
+    <h1 class="font-serif text-3xl md:text-4xl text-on-background mt-6 mb-8">Studio Admin</h1>
+    <div class="space-y-6">
+      <div class="e-group"><label class="e-label mb-1" for="login-email">Email</label><input class="e-input" id="login-email" type="email" autocomplete="username" required/></div>
+      <div class="e-group"><label class="e-label mb-1" for="login-pass">Password</label><input class="e-input" id="login-pass" type="password" autocomplete="current-password" required/></div>
+    </div>
+    <p id="login-error" class="text-error text-sm mt-5" hidden></p>
+    <button id="login-btn" type="submit" class="btn btn-primary w-full mt-8">Sign in</button>
+    <button id="forgot-btn" type="button" class="btn-text mt-5">Forgot password?</button>
+  </form>
+</section>
+
+<!-- ===== APP ===== -->
+<div id="app-view" hidden>
+  <header class="sticky top-0 z-40 bg-[#fcf9f7]/85 backdrop-blur-xl" style="-webkit-backdrop-filter:blur(16px)">
+    <div class="max-w-screen-xl mx-auto px-4 md:px-8 py-3 flex items-center justify-between gap-4">
+      <div class="min-w-0">
+        <a href="index.html" class="font-serif italic text-secondary tracking-tight text-sm md:text-lg block truncate">New Special Eyebrows &amp; Beauty</a>
+        <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-tertiary/70">Studio Admin</p>
+      </div>
+      <div class="flex items-center gap-3 shrink-0">
+        <span id="user-email" class="hidden sm:inline text-xs text-tertiary"></span>
+        <button id="signout-btn" class="btn btn-soft"><span class="material-symbols-outlined" style="font-size:18px">logout</span><span class="hidden sm:inline">Sign out</span></button>
+      </div>
+    </div>
+    <nav class="max-w-screen-xl mx-auto px-4 md:px-8 pb-3 flex gap-2 overflow-x-auto" role="tablist">
+      <button class="tab on" data-tab="rewards" role="tab">Rewards</button>
+      <button class="tab" data-tab="services" role="tab">Services &amp; Prices</button>
+      <button class="tab" data-tab="settings" role="tab">Reward Rules</button>
+    </nav>
+  </header>
+
+  <main class="max-w-screen-xl mx-auto px-4 md:px-8 py-6 md:py-10 pb-24">
+
+    <!-- ===== REWARDS TAB ===== -->
+    <section id="tab-rewards">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Member list -->
+        <div class="lg:col-span-5 bg-surface-container-lowest rounded-[2rem] p-5 md:p-6 ambient-bloom self-start">
+          <div class="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 class="font-serif text-2xl text-on-background">Members</h2>
+              <p id="member-count" class="text-xs text-tertiary/70"></p>
+            </div>
+            <button id="new-member-btn" class="btn btn-primary"><span class="material-symbols-outlined" style="font-size:18px">person_add</span>New</button>
+          </div>
+          <div class="e-group mb-3 relative">
+            <span class="material-symbols-outlined absolute left-0 top-1/2 -translate-y-1/2 text-tertiary/50" style="font-size:20px">search</span>
+            <input id="member-search" class="e-input" style="padding-left:1.75rem" type="search" placeholder="Search by phone or name" autocomplete="off"/>
+          </div>
+          <div id="member-list" class="max-h-[60vh] overflow-y-auto -mx-2 px-2 space-y-1"></div>
+        </div>
+
+        <!-- Member detail -->
+        <div id="member-detail" class="lg:col-span-7"></div>
+      </div>
+    </section>
+
+    <!-- ===== SERVICES TAB ===== -->
+    <section id="tab-services" hidden>
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-6">
+        <div>
+          <span class="text-secondary font-bold tracking-[0.3em] uppercase text-xs mb-2 block">Menu</span>
+          <h2 class="font-serif text-3xl md:text-4xl text-on-background">Services &amp; Prices</h2>
+        </div>
+        <p class="text-tertiary text-sm max-w-sm">Changes appear on the website and in the booking form the next time a visitor loads the page.</p>
+      </div>
+
+      <div id="seed-box" class="bg-secondary-fixed/60 rounded-[2rem] p-6 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4" hidden>
+        <p class="text-on-secondary-fixed text-sm">No services saved yet. Start with the menu currently on your website?</p>
+        <button id="seed-btn" class="btn btn-primary shrink-0">Load default services</button>
+      </div>
+
+      <!-- Add service -->
+      <form id="add-svc-form" class="bg-surface-container-lowest rounded-[2rem] p-5 md:p-6 ambient-bloom mb-6 grid grid-cols-1 sm:grid-cols-12 gap-4 sm:gap-6 items-end" novalidate>
+        <div class="e-group sm:col-span-5"><label class="e-label mb-1" for="svc-name">New service</label><input id="svc-name" class="e-input" placeholder="e.g. Lash Lift" required/></div>
+        <div class="e-group sm:col-span-3"><label class="e-label mb-1" for="svc-cat">Category</label><select id="svc-cat" class="e-input"></select></div>
+        <div class="e-group sm:col-span-2"><label class="e-label mb-1" for="svc-price">Price ($)</label><input id="svc-price" class="e-input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0" required/></div>
+        <button class="btn btn-primary sm:col-span-2"><span class="material-symbols-outlined" style="font-size:18px">add</span>Add</button>
+      </form>
+
+      <div id="svc-list" class="space-y-6"></div>
+    </section>
+
+    <!-- ===== SETTINGS TAB ===== -->
+    <section id="tab-settings" hidden>
+      <div class="mb-6">
+        <span class="text-secondary font-bold tracking-[0.3em] uppercase text-xs mb-2 block">Loyalty</span>
+        <h2 class="font-serif text-3xl md:text-4xl text-on-background">Reward Rules</h2>
+      </div>
+      <form id="settings-form" class="grid grid-cols-1 md:grid-cols-2 gap-6" novalidate>
+        <div class="bg-surface-container-lowest rounded-[2rem] p-6 md:p-8 ambient-bloom space-y-6">
+          <div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary">confirmation_number</span><h3 class="font-serif text-xl">Visit punch card</h3></div>
+          <div class="e-group"><label class="e-label mb-1" for="set-visits">Visits needed for a reward</label><input id="set-visits" class="e-input" type="number" min="1" step="1" required/></div>
+          <div class="e-group"><label class="e-label mb-1" for="set-visit-text">Reward</label><input id="set-visit-text" class="e-input" required/></div>
+        </div>
+        <div class="bg-surface-container-lowest rounded-[2rem] p-6 md:p-8 ambient-bloom space-y-6">
+          <div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary">stars</span><h3 class="font-serif text-xl">Points</h3></div>
+          <div class="e-group"><label class="e-label mb-1" for="set-ppd">Points earned per $1 spent</label><input id="set-ppd" class="e-input" type="number" min="0" step="0.1" required/></div>
+          <div class="grid grid-cols-2 gap-6">
+            <div class="e-group"><label class="e-label mb-1" for="set-rp">Points to redeem</label><input id="set-rp" class="e-input" type="number" min="1" step="1" required/></div>
+            <div class="e-group"><label class="e-label mb-1" for="set-rv">Worth ($ off)</label><input id="set-rv" class="e-input" type="number" min="0" step="0.01" required/></div>
+          </div>
+        </div>
+        <div class="md:col-span-2 flex items-center gap-4">
+          <button class="btn btn-primary">Save rules</button>
+          <p id="settings-summary" class="text-tertiary text-sm"></p>
+        </div>
+      </form>
+    </section>
+  </main>
+</div>
+
+<!-- ===== MEMBER DIALOG ===== -->
+<dialog id="member-dialog">
+  <form id="member-form" class="bg-surface-container-lowest rounded-[2rem] p-7 md:p-8" novalidate>
+    <h2 id="member-dialog-title" class="font-serif text-2xl text-on-background mb-6">New rewards member</h2>
+    <div class="space-y-5">
+      <div class="e-group"><label class="e-label mb-1" for="m-name">Full name</label><input id="m-name" class="e-input" autocomplete="off" required/></div>
+      <div class="e-group"><label class="e-label mb-1" for="m-phone">Phone number</label><input id="m-phone" class="e-input" type="tel" inputmode="tel" placeholder="(xxx) xxx-xxxx" autocomplete="off" required/></div>
+      <div class="e-group"><label class="e-label mb-1" for="m-email">Email <span style="opacity:.5;font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label><input id="m-email" class="e-input" type="email" autocomplete="off"/></div>
+    </div>
+    <p id="member-error" class="text-error text-sm mt-4" hidden></p>
+    <div class="flex justify-end gap-3 mt-8">
+      <button type="button" id="member-cancel" class="btn btn-soft">Cancel</button>
+      <button type="submit" id="member-save" class="btn btn-primary">Sign up</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ===== TOAST ===== -->
+<div id="toast" class="fixed bottom-6 left-1/2 z-[100] px-5 py-3 rounded-full text-sm font-semibold ambient-bloom opacity-0 pointer-events-none" style="transform:translate(-50%,12px)" role="status" aria-live="polite"></div>
+
+<script src="js/services-data.js"></script>
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>
