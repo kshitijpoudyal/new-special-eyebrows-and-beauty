@@ -13,7 +13,7 @@ Data is stored in **Firebase** (Firestore + Authentication). Until Firebase is c
 | File | Purpose |
 |---|---|
 | `index.html` | Public site. Loads live services from Firestore and falls back to defaults if Firebase isn't set up |
-| `admin.html`, `js/admin.js` | Staff admin: Rewards, Services & Prices, Reward Rules |
+| `admin.html`, `js/admin.js` | Staff admin: Appointments, Rewards, Services & Prices, Settings |
 | `js/firebase-config.js` | **Paste your Firebase web config here** |
 | `js/emailjs-config.js` | **Paste your EmailJS keys here** (booking + accept/decline emails) |
 | `js/services-data.js` | Default services (with durations), categories, reward rules, opening hours |
