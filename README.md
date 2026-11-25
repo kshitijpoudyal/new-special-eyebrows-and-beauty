@@ -15,7 +15,8 @@ Data is stored in **Firebase** (Firestore + Authentication). Until Firebase is c
 | `index.html` | Public site. Loads live services from Firestore and falls back to defaults if Firebase isn't set up |
 | `admin.html`, `js/admin.js` | Staff admin: Appointments, Rewards, Services & Prices, Settings |
 | `js/firebase-config.js` | **Paste your Firebase web config here** |
-| `js/emailjs-config.js` | **Paste your EmailJS keys here** (booking + accept/decline emails) |
+| `js/email-config.js` | **Paste your email script URL here** (booking + accept/decline emails) |
+| `email-script/` | Free email sender (Google Apps Script + Gmail): copy into script.google.com |
 | `js/services-data.js` | Default services (with durations), categories, reward rules, opening hours |
 | `firestore.rules` | Security rules: **put your admin email(s) here** |
 | `firebase.json` | Firebase CLI config (rules, hosting, emulators) |
@@ -46,12 +47,34 @@ Data is stored in **Firebase** (Firestore + Authentication). Until Firebase is c
 7. **Authorized domains**: if the site is hosted somewhere other than Firebase Hosting, add that domain under
    *Authentication → Settings → Authorized domains*.
 8. Open `admin.html`, sign in, go to **Services & Prices** and click **Load default services**.
-9. **Emails (optional but recommended)**: in [EmailJS](https://www.emailjs.com) create three templates and paste their IDs and your keys into `js/emailjs-config.js`:
-   - **Business**: new request to you. Variables: `{{client_name}}`, `{{client_phone}}`, `{{client_email}}`, `{{booking_date}}`, `{{booking_time}}`, `{{services}}`, `{{total}}`, `{{notes}}`. Send to `{{to_email}}`.
-   - **Client**: "we received your request" to the customer (same variables, send to `{{to_email}}`).
-   - **Status**: sent when you accept, decline or cancel. Variables: `{{to_name}}`, `{{status}}` (confirmed / declined / cancelled), `{{booking_date}}`, `{{booking_time}}`, `{{services}}`, `{{message}}`. Send to `{{to_email}}`.
+9. **Emails**: free, sent from your Gmail. See [Emails](#emails-free-via-gmail) below.
 
-   Without EmailJS, bookings are still saved and shown in admin, but nobody is emailed. Use the Call/Text links instead.
+## Emails (free, via Gmail)
+
+Emails are sent by a small Google Apps Script that runs under your Google account. It's free, with no card needed.
+A regular Gmail account can send about **100 emails a day**; Google Workspace accounts can send about 1,500.
+
+| When | Who gets it |
+|---|---|
+| A customer requests a booking | You (with all the details), plus a "request received" email to the customer if they gave an email |
+| You accept, decline or cancel | The customer, if they gave an email (with your reason, if you typed one) |
+
+The website only sends the booking's ID. The script looks the booking up in Firebase itself and sends each email only once, so nobody can use it to send their own messages.
+
+**Setup (about 5 minutes):**
+1. Sign in to <https://script.google.com> with **the same Google account that owns the Firebase project** and click **New project**.
+2. Replace the contents of `Code.gs` with `email-script/Code.gs` from this repo.
+   At the top, set `OWNER_EMAIL` to the inbox that should receive new requests. Optionally set `ADMIN_URL`.
+3. Click ⚙ **Project Settings** and tick **Show "appsscript.json" manifest file in editor**.
+   Then back in the editor, replace `appsscript.json` with `email-script/appsscript.json`.
+4. Select the `testSetup` function and click **▶ Run**. Allow the permissions it asks for: Gmail sending, external requests and Firestore.
+   The log should say `Firestore access: OK`.
+5. Click **Deploy → New deployment**. Pick type **Web app**, with *Execute as*: **Me** and *Who has access*: **Anyone**. Click **Deploy**, then copy the **Web app URL**.
+6. Paste that URL into `js/email-config.js` (`EMAIL_SCRIPT_URL`) and publish the site.
+
+If you later edit `Code.gs`, use **Deploy → Manage deployments → Edit → Version: New version**. That keeps the same URL.
+
+Without the script URL, bookings are still saved and shown in admin, but no emails are sent. Use the Call/Text links instead.
 
 ## Using the admin page
 

@@ -8,7 +8,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script id="tailwind-config">
 tailwind.config = {
   darkMode: "class",
@@ -561,7 +560,7 @@ tailwind.config = {
 
 <!-- ===== SCRIPT ===== -->
 <script src="js/services-data.js"></script>
-<script src="js/emailjs-config.js"></script>
+<script src="js/email-config.js"></script>
 <script>
 // Service menu: starts with the defaults (js/services-data.js) and is replaced
 // with the live menu from Firebase once it loads (see module script below).
@@ -767,10 +766,6 @@ function fillReview(){
   document.getElementById('rv-email').textContent=document.getElementById('inp-email').value;
   document.getElementById('rv-total').textContent=money(getTotal());
 }
-// Email settings live in js/emailjs-config.js
-const EJ = window.EMAILJS_CFG;
-if(window.emailjs && window.EMAILJS_READY) emailjs.init({ publicKey: EJ.PUBLIC_KEY });
-
 async function sendBooking(){
   const bn = document.getElementById('btn-next');
   const errBox = document.getElementById('submit-error');
@@ -779,7 +774,6 @@ async function sendBooking(){
   bn.textContent = 'Sending…';
   errBox.classList.add('hidden');
 
-  const dStr   = date.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const dShort = date.toLocaleDateString('en-US',{month:'long',day:'numeric'});
   const chosen = sel.map(id=>SVCS.find(x=>x.id===id)).filter(Boolean);
   const name   = document.getElementById('inp-name').value.trim();
@@ -788,46 +782,32 @@ async function sendBooking(){
   const notes  = document.getElementById('inp-notes').value.trim();
   const range  = timeRange();
 
+  if(!window.BookingAPI) return fail();   // Firebase unreachable — ask them to call
+
   // 1 — Save the request (blocks the time for everyone else)
-  if(window.BookingAPI){
-    try{
-      await window.BookingAPI.book({
-        name, phone, email: clientEmail || null, notes,
-        services: chosen.map(s=>({ id:s.id, name:s.name, price:Number(s.price)||0, duration:svcDur(s) })),
-        total: getTotal(), duration: totalMinutes(),
-        date: dateKey(date), startIdx: SLOTS.indexOf(time), slotCount: needSlots(), timeLabel: range,
-      });
-    }catch(err){
-      console.error('Booking error:', err);
-      if(err.code==='slot-taken'){
-        bn.textContent='Request Booking';
-        time=null; step=2; sync();
-        document.getElementById('slot-msg').classList.remove('hidden');
-        loadDay();
-        return;
-      }
-      return fail();
+  let apptId;
+  try{
+    apptId = await window.BookingAPI.book({
+      name, phone, email: clientEmail || null, notes,
+      services: chosen.map(s=>({ id:s.id, name:s.name, price:Number(s.price)||0, duration:svcDur(s) })),
+      total: getTotal(), duration: totalMinutes(),
+      date: dateKey(date), startIdx: SLOTS.indexOf(time), slotCount: needSlots(), timeLabel: range,
+    });
+  }catch(err){
+    console.error('Booking error:', err);
+    if(err.code==='slot-taken'){
+      bn.textContent='Request Booking';
+      time=null; step=2; sync();
+      document.getElementById('slot-msg').classList.remove('hidden');
+      loadDay();
+      return;
     }
+    return fail();
   }
 
-  // 2 — Email notifications (owner + client confirmation)
-  let emailed = false;
-  if(window.emailjs && window.EMAILJS_READY){
-    const params = {
-      to_email: EJ.BIZ_EMAIL, to_name: 'New Special Eyebrows & Beauty',
-      client_name: name, client_phone: phone, client_email: clientEmail || 'Not provided',
-      booking_date: dStr, booking_time: range,
-      services: chosen.map(s=>s.name+' ('+money(s.price)+')').join(', '),
-      total: money(getTotal()), notes: notes || 'None',
-    };
-    try{
-      await emailjs.send(EJ.SERVICE_ID, EJ.TEMPLATE_BIZ, params);
-      if(clientEmail) await emailjs.send(EJ.SERVICE_ID, EJ.TEMPLATE_CLIENT, { ...params, to_email: clientEmail, to_name: name });
-      emailed = true;
-    }catch(err){ console.error('EmailJS error:', err); }
-  }
-  // Without Firebase the email is the only record — it must succeed.
-  if(!window.BookingAPI && !emailed) return fail();
+  // 2 — Emails (salon alert + "request received" to the client). The booking
+  // is already saved, so an email problem doesn't stop the success screen.
+  await window.sendBookingEmail('new', apptId);
 
   step = 5;
   document.getElementById('success-line').textContent = dShort+', '+range;

@@ -238,7 +238,7 @@ $('appt-list').addEventListener('click', async (e) => {
     // Declined/cancelled bookings free up their time on the website.
     if (status !== 'accepted') (a.slotIds || []).forEach((id) => b.delete(doc(db, 'slots', id)));
     await b.commit();
-    const sent = await notifyCustomer(a, status, reason);
+    const sent = await notifyCustomer(a);
     const what = { accepted: 'Accepted', rejected: 'Declined', cancelled: 'Cancelled' }[status];
     toast(sent === 'sent' ? `${what} — customer emailed.`
       : sent === 'failed' ? `${what}, but the email failed — please call or text ${a.name}.`
@@ -246,25 +246,9 @@ $('appt-list').addEventListener('click', async (e) => {
   });
 });
 
-let emailjsInit = false;
-async function notifyCustomer(a, status, reason) {
-  const C = window.EMAILJS_CFG;
+async function notifyCustomer(a) {
   if (!a.email) return 'no-email';
-  if (!window.EMAILJS_READY || !window.emailjs) return 'unconfigured';
-  if (!emailjsInit) { window.emailjs.init({ publicKey: C.PUBLIC_KEY }); emailjsInit = true; }
-  const when = `${longDate(a.date)}, ${a.timeLabel}`;
-  const message = status === 'accepted'
-    ? `Your appointment on ${when} is confirmed. We look forward to seeing you!`
-    : `We're sorry — we can't keep your appointment on ${when}.${reason ? ' ' + reason : ''} Please book another time online or call us at 804-882-2942.`;
-  try {
-    await window.emailjs.send(C.SERVICE_ID, C.TEMPLATE_STATUS, {
-      to_name: a.name, to_email: a.email,
-      status: { accepted: 'confirmed', rejected: 'declined', cancelled: 'cancelled' }[status],
-      booking_date: longDate(a.date), booking_time: a.timeLabel,
-      services: (a.services || []).map((s) => s.name).join(', '), message,
-    });
-    return 'sent';
-  } catch (e) { console.error('EmailJS error', e); return 'failed'; }
+  return window.sendBookingEmail('status', a.id);
 }
 
 // =====================================================================
