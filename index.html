@@ -77,6 +77,7 @@ tailwind.config = {
   }
   .tslot:hover:not(.tsel) { border-color:#775a19; color:#775a19; }
   .tslot.tsel { background:#ffdea5; border-color:#775a19; color:#261900; font-weight:700; }
+  .tslot.tdis { opacity:0.35; text-decoration:line-through; cursor:not-allowed; pointer-events:none; }
 
   /* Service chips */
   .schip {
@@ -493,6 +494,7 @@ tailwind.config = {
           <div>
             <h3 class="font-serif text-base md:text-lg text-on-background mb-1">Select a Time</h3>
             <p id="time-lbl" class="text-tertiary text-sm mb-4 italic">Choose a date first</p>
+            <p id="slot-msg" class="hidden text-sm mb-4 bg-error-container text-on-error-container rounded-xl px-4 py-3">That time was just booked by someone else — please pick another.</p>
             <div id="time-grid" class="flex flex-wrap gap-2 max-h-56 overflow-y-auto pr-1"></div>
           </div>
         </div>
@@ -533,8 +535,8 @@ tailwind.config = {
         <div class="w-20 h-20 gradient-btn rounded-full flex items-center justify-center mx-auto mb-7">
           <span class="material-symbols-outlined text-white" style="font-size:2.5rem;font-variation-settings:'FILL' 1">check_circle</span>
         </div>
-        <h2 class="font-serif text-3xl md:text-4xl text-on-background mb-3">You're Booked!</h2>
-        <p class="text-tertiary text-lg mb-1">We can't wait to see you.</p>
+        <h2 class="font-serif text-3xl md:text-4xl text-on-background mb-3">Request Received!</h2>
+        <p class="text-tertiary text-lg mb-1">We'll confirm your appointment shortly.</p>
         <p id="success-line" class="text-secondary font-semibold text-base mb-8"></p>
         <p class="text-tertiary/70 text-sm mb-8 max-w-xs mx-auto">Questions? Call us at <a href="tel:8048822942" class="text-primary font-semibold">804-882-2942</a>.</p>
         <button onclick="closeModal()" class="gradient-btn text-white px-10 py-4 rounded-full font-bold text-base tracking-wide uppercase hover:scale-105 active:scale-95 transition-transform">Done</button>
@@ -559,6 +561,7 @@ tailwind.config = {
 
 <!-- ===== SCRIPT ===== -->
 <script src="js/services-data.js"></script>
+<script src="js/emailjs-config.js"></script>
 <script>
 // Service menu: starts with the defaults (js/services-data.js) and is replaced
 // with the live menu from Firebase once it loads (see module script below).
@@ -582,21 +585,43 @@ function renderBento(){
 renderBento();
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const WDAYS  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-const SLOTS  = (()=>{
-  const s=[];
-  for(let h=9;h<19;h++){[0,30].forEach(m=>{
-    if(h===18&&m===30)return;
-    const h12=h>12?h-12:h===0?12:h;
-    s.push(h12+':'+(m===0?'00':'30')+' '+(h>=12?'PM':'AM'));
-  });}
-  return s;
-})();
+const SLOTS  = window.SLOT_LABELS;
 
 let step=1, sel=[], date=null, time=null, calY, calM;
+// Availability for the picked date (from Firebase): occ[i] = bookings in slot i.
+let dayOcc=[], capacity=(window.DEFAULT_BOOKING||{}).capacity||1, dayLoading=false;
+
+const svcDur=s=>Number(s&&s.duration)||30;
+const totalMinutes=()=>sel.reduce((t,id)=>t+svcDur(SVCS.find(x=>x.id===id)),0);
+const needSlots=()=>window.slotsFor(totalMinutes());
+const dateKey=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+function timeRange(){ const i=SLOTS.indexOf(time); return i<0?'':time+' – '+window.slotEndLabel(i+needSlots()); }
+function slotAvail(i){
+  const n=needSlots();
+  if(i+n>SLOTS.length) return false;                       // would run past closing
+  if(date&&date.toDateString()===new Date().toDateString()){ // no past times today
+    const now=new Date(), mins=now.getHours()*60+now.getMinutes();
+    if(9*60+i*30<=mins) return false;
+  }
+  for(let j=i;j<i+n;j++) if((dayOcc[j]||0)>=capacity) return false;
+  return true;
+}
+async function loadDay(){
+  dayOcc=[];
+  if(!window.BookingAPI||!date) return;
+  const d=date; dayLoading=true; renderSlots();
+  try{
+    const r=await window.BookingAPI.loadDay(dateKey(d));
+    if(date!==d) return;                                    // user picked another date meanwhile
+    dayOcc=r.occ; capacity=r.capacity;
+  }catch(e){ console.warn('Could not load availability',e); }
+  finally{ if(date===d){ dayLoading=false; if(time&&!slotAvail(SLOTS.indexOf(time))) time=null; renderSlots(); sync(); } }
+}
 
 // ---- Modal open/close ----
 function openModal(pre){
-  step=1; sel=[]; date=null; time=null;
+  step=1; sel=[]; date=null; time=null; dayOcc=[];
+  document.getElementById('slot-msg').classList.add('hidden');
   const now=new Date(); calY=now.getFullYear(); calM=now.getMonth();
   renderChips(); renderCal(); renderSlots();
   const m=document.getElementById('bk-modal');
@@ -635,7 +660,7 @@ function canGo(){
 }
 function sync(){
   [1,2,3,4,5].forEach(i=>document.getElementById('s'+i).classList.toggle('hidden',i!==step));
-  const titles=['Choose Your Services','Pick a Date & Time','Your Details','Review & Confirm','Booking Confirmed!'];
+  const titles=['Choose Your Services','Pick a Date & Time','Your Details','Review & Confirm','Request Sent!'];
   document.getElementById('bk-title').textContent=titles[step-1];
   document.getElementById('step-lbl').textContent=step<=4?'Step '+step+' of 4':'';
   const pcts=[25,50,75,100,100];
@@ -643,7 +668,7 @@ function sync(){
   document.getElementById('bk-footer').classList.toggle('hidden',step===5);
   const bb=document.getElementById('btn-back'), bn=document.getElementById('btn-next');
   bb.classList.toggle('hidden',step===1);
-  bn.textContent=step===4?'Confirm Booking':'Continue';
+  bn.textContent=step===4?'Request Booking':'Continue';
   bn.disabled=!canGo();
   const msg=document.getElementById('ft-msg'), sum=document.getElementById('ft-sum');
   if(step===1){
@@ -674,6 +699,8 @@ function toggleSvc(id){
   i>-1?sel.splice(i,1):sel.push(id);
   const chip=document.getElementById('chip-'+id);
   if(chip) chip.classList.toggle('ssel',sel.includes(id));
+  if(time&&!slotAvail(SLOTS.indexOf(time))) time=null;
+  renderSlots();
   sync();
 }
 function getTotal(){ return Math.round(sel.reduce((t,id)=>{ const s=SVCS.find(x=>x.id===id); return t+(s?Number(s.price):0); },0)*100)/100; }
@@ -700,7 +727,8 @@ function renderCal(){
 function pickDate(y,m,d){
   date=new Date(y,m,d); time=null;
   document.getElementById('time-lbl').textContent=WDAYS[date.getDay()]+', '+MONTHS[m]+' '+d;
-  renderCal(); renderSlots(); sync();
+  document.getElementById('slot-msg').classList.add('hidden');
+  renderCal(); renderSlots(); sync(); loadDay();
 }
 function prevMo(){
   const now=new Date();
@@ -717,14 +745,19 @@ function nextMo(){
 function renderSlots(){
   const g=document.getElementById('time-grid');
   if(!date){ g.innerHTML='<p class="text-tertiary/60 text-sm italic">Select a date to see available times.</p>'; return; }
-  g.innerHTML=SLOTS.map(t=>'<button class="tslot'+(time===t?' tsel':'')+'" onclick="pickTime(\''+t+'\')">'+t+'</button>').join('');
+  if(dayLoading){ g.innerHTML='<p class="text-tertiary/60 text-sm italic">Checking availability…</p>'; return; }
+  const open=SLOTS.filter((t,i)=>slotAvail(i)).length;
+  g.innerHTML=open?SLOTS.map((t,i)=>{
+    const ok=slotAvail(i);
+    return '<button class="tslot'+(time===t?' tsel':'')+(ok?'':' tdis')+'"'+(ok?' onclick="pickTime(\''+t+'\')"':' disabled aria-disabled="true" title="Unavailable"')+'>'+t+'</button>';
+  }).join(''):'<p class="text-tertiary/60 text-sm italic">No times left on this day — please choose another date.</p>';
 }
 function pickTime(t){ time=t; renderSlots(); sync(); }
 
 // ---- Review ----
 function fillReview(){
   const dStr=date?date.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}):'';
-  document.getElementById('rv-dt').textContent=dStr+' at '+time;
+  document.getElementById('rv-dt').textContent=dStr+', '+timeRange();
   document.getElementById('rv-svcs').innerHTML=sel.map(id=>{
     const s=SVCS.find(x=>x.id===id);
     return '<div class="flex justify-between text-sm"><span class="text-tertiary">'+esc(s.name)+'</span><span class="text-primary font-semibold font-serif">'+money(s.price)+'</span></div>';
@@ -734,71 +767,71 @@ function fillReview(){
   document.getElementById('rv-email').textContent=document.getElementById('inp-email').value;
   document.getElementById('rv-total').textContent=money(getTotal());
 }
-// ====================================================
-// EMAIL CONFIGURATION — fill these in after signing up
-// at https://www.emailjs.com (free, no backend needed)
-// ====================================================
-const EMAILJS_PUBLIC_KEY      = 'YOUR_PUBLIC_KEY';       // Account → API Keys
-const EMAILJS_SERVICE_ID      = 'YOUR_SERVICE_ID';       // Email Services tab
-const EMAILJS_TEMPLATE_BIZ    = 'YOUR_BIZ_TEMPLATE_ID'; // Email Templates tab
-const EMAILJS_TEMPLATE_CLIENT = 'YOUR_CLIENT_TEMPLATE_ID';
-const BIZ_EMAIL               = 'owner@specialeyebrows.com'; // your inbox
-
-// Template variables available in EmailJS dashboard:
-//   {{client_name}}, {{client_phone}}, {{client_email}},
-//   {{booking_date}}, {{booking_time}}, {{services}},
-//   {{total}}, {{notes}}, {{to_email}}, {{to_name}}
-// ====================================================
-
-if(window.emailjs) emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+// Email settings live in js/emailjs-config.js
+const EJ = window.EMAILJS_CFG;
+if(window.emailjs && window.EMAILJS_READY) emailjs.init({ publicKey: EJ.PUBLIC_KEY });
 
 async function sendBooking(){
   const bn = document.getElementById('btn-next');
+  const errBox = document.getElementById('submit-error');
+  const fail = ()=>{ bn.disabled=false; bn.textContent='Request Booking'; errBox.classList.remove('hidden'); };
   bn.disabled = true;
   bn.textContent = 'Sending…';
-  document.getElementById('submit-error').classList.add('hidden');
+  errBox.classList.add('hidden');
 
-  const dStr   = date ? date.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) : '';
-  const dShort = date ? date.toLocaleDateString('en-US',{month:'long',day:'numeric'}) : '';
-  const svcList = sel.map(id=>{ const s=SVCS.find(x=>x.id===id); return s.name+' ('+money(s.price)+')'; }).join(', ');
+  const dStr   = date.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const dShort = date.toLocaleDateString('en-US',{month:'long',day:'numeric'});
+  const chosen = sel.map(id=>SVCS.find(x=>x.id===id)).filter(Boolean);
+  const name   = document.getElementById('inp-name').value.trim();
+  const phone  = document.getElementById('inp-phone').value.trim();
   const clientEmail = document.getElementById('inp-email').value.trim();
+  const notes  = document.getElementById('inp-notes').value.trim();
+  const range  = timeRange();
 
-  const params = {
-    to_email:     BIZ_EMAIL,
-    to_name:      'New Special Eyebrows & Beauty',
-    client_name:  document.getElementById('inp-name').value,
-    client_phone: document.getElementById('inp-phone').value,
-    client_email: clientEmail || 'Not provided',
-    booking_date: dStr,
-    booking_time: time,
-    services:     svcList,
-    total:        money(getTotal()),
-    notes:        document.getElementById('inp-notes').value || 'None',
-  };
-
-  try {
-    // 1 — Notify the business owner
-    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_BIZ, params);
-
-    // 2 — Confirm to the client (only if they gave an email)
-    if(clientEmail){
-      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_CLIENT, {
-        ...params,
-        to_email: clientEmail,
-        to_name:  params.client_name,
+  // 1 — Save the request (blocks the time for everyone else)
+  if(window.BookingAPI){
+    try{
+      await window.BookingAPI.book({
+        name, phone, email: clientEmail || null, notes,
+        services: chosen.map(s=>({ id:s.id, name:s.name, price:Number(s.price)||0, duration:svcDur(s) })),
+        total: getTotal(), duration: totalMinutes(),
+        date: dateKey(date), startIdx: SLOTS.indexOf(time), slotCount: needSlots(), timeLabel: range,
       });
+    }catch(err){
+      console.error('Booking error:', err);
+      if(err.code==='slot-taken'){
+        bn.textContent='Request Booking';
+        time=null; step=2; sync();
+        document.getElementById('slot-msg').classList.remove('hidden');
+        loadDay();
+        return;
+      }
+      return fail();
     }
-
-    // Success — show step 5
-    step = 5;
-    document.getElementById('success-line').textContent = dShort+' at '+time;
-    sync();
-  } catch(err){
-    console.error('EmailJS error:', err);
-    bn.disabled = false;
-    bn.textContent = 'Confirm Booking';
-    document.getElementById('submit-error').classList.remove('hidden');
   }
+
+  // 2 — Email notifications (owner + client confirmation)
+  let emailed = false;
+  if(window.emailjs && window.EMAILJS_READY){
+    const params = {
+      to_email: EJ.BIZ_EMAIL, to_name: 'New Special Eyebrows & Beauty',
+      client_name: name, client_phone: phone, client_email: clientEmail || 'Not provided',
+      booking_date: dStr, booking_time: range,
+      services: chosen.map(s=>s.name+' ('+money(s.price)+')').join(', '),
+      total: money(getTotal()), notes: notes || 'None',
+    };
+    try{
+      await emailjs.send(EJ.SERVICE_ID, EJ.TEMPLATE_BIZ, params);
+      if(clientEmail) await emailjs.send(EJ.SERVICE_ID, EJ.TEMPLATE_CLIENT, { ...params, to_email: clientEmail, to_name: name });
+      emailed = true;
+    }catch(err){ console.error('EmailJS error:', err); }
+  }
+  // Without Firebase the email is the only record — it must succeed.
+  if(!window.BookingAPI && !emailed) return fail();
+
+  step = 5;
+  document.getElementById('success-line').textContent = dShort+', '+range;
+  sync();
 }
 
 // ---- Mobile menu ----
@@ -820,8 +853,58 @@ function toggleMenu(){
 <!-- Live service menu & prices from Firebase (managed in admin.html) -->
 <script type="module">
 import { db } from './js/firebase-config.js';
-import { collection, getDocs } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
+import { collection, getDocs, getDoc, doc, query, where, writeBatch, serverTimestamp } from 'https://www.gstatic.com/firebasejs/11.0.2/firebase-firestore.js';
 if (db) {
+  // Booking requests + availability. Each occupied 30-min slot has one public
+  // `slots/{date}_{idx}_{seat}` doc (no personal info); details stay in the
+  // admin-only `appointments` collection.
+  async function readDay(dateStr) {
+    const [snap, cfg] = await Promise.all([
+      getDocs(query(collection(db, 'slots'), where('date', '==', dateStr))),
+      getDoc(doc(db, 'settings', 'booking')).catch(() => null),
+    ]);
+    const capacity = Math.max(1, Number(cfg?.exists() ? cfg.data().capacity : 0) || window.DEFAULT_BOOKING.capacity);
+    const seats = {};
+    snap.docs.forEach((d) => { const s = d.data(); (seats[s.idx] ||= new Set()).add(s.seat); });
+    return { capacity, seats };
+  }
+  const slotTaken = () => Object.assign(new Error('That time was just booked.'), { code: 'slot-taken' });
+  window.BookingAPI = {
+    async loadDay(dateStr) {
+      const { capacity, seats } = await readDay(dateStr);
+      const occ = [];
+      Object.entries(seats).forEach(([i, set]) => { occ[i] = set.size; });
+      return { capacity, occ };
+    },
+    async book(p) {
+      const { capacity, seats } = await readDay(p.date);
+      const slotIds = [];
+      for (let j = p.startIdx; j < p.startIdx + p.slotCount; j++) {
+        const taken = seats[j] || new Set();
+        let seat = -1;
+        for (let k = 0; k < capacity; k++) if (!taken.has(k)) { seat = k; break; }
+        if (seat < 0) throw slotTaken();
+        slotIds.push({ id: `${p.date}_${j}_${seat}`, idx: j, seat });
+      }
+      const ref = doc(collection(db, 'appointments'));
+      const b = writeBatch(db);
+      b.set(ref, { ...p, slotIds: slotIds.map((x) => x.id), status: 'pending', createdAt: serverTimestamp() });
+      slotIds.forEach((x) => b.set(doc(db, 'slots', x.id), { date: p.date, idx: x.idx, seat: x.seat, appt: ref.id }));
+      try {
+        await b.commit();
+      } catch (err) {
+        // Someone grabbed the same seat a moment ago (the slot doc now exists,
+        // so the write counts as an update, which the rules refuse).
+        if (err.code === 'permission-denied') {
+          const now = await readDay(p.date);
+          if (slotIds.some((x) => now.seats[x.idx]?.has(x.seat))) throw slotTaken();
+        }
+        throw err;
+      }
+      return ref.id;
+    },
+  };
+
   try {
     const snap = await getDocs(collection(db, 'services'));
     const list = snap.docs.map(d => ({ id: d.id, ...d.data() }))

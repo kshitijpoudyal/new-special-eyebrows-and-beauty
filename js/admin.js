@@ -63,6 +63,9 @@ if (useEmulator) connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWar
 let members = [];
 let services = [];
 let rules = { ...window.DEFAULT_REWARDS };
+let booking = { ...window.DEFAULT_BOOKING };
+let appointments = [];
+let apptFilter = 'pending';
 let selectedId = null;
 let historyItems = [];
 let visitSel = [];            // service ids ticked in "record visit"
@@ -96,7 +99,7 @@ onAuthStateChanged(auth, (user) => {
   if (unsubHistory) { unsubHistory(); unsubHistory = null; }
   $('login-view').hidden = !!user;
   $('app-view').hidden = !user;
-  if (!user) { members = []; services = []; selectedId = null; return; }
+  if (!user) { members = []; services = []; appointments = []; selectedId = null; return; }
   $('user-email').textContent = user.email;
   startListeners();
 });
@@ -105,12 +108,21 @@ function startListeners() {
   const onErr = (e) => { console.error(e); toast(errMsg(e), true); };
   unsubs.push(onSnapshot(query(collection(db, 'members'), orderBy('name')), (snap) => {
     members = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderMemberList(); renderDetail();
+    renderMemberList(); renderDetail(); renderAppointments();
   }, onErr));
   unsubs.push(onSnapshot(collection(db, 'services'), (snap) => {
     services = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     renderServices(); renderDetail();
+  }, onErr));
+  unsubs.push(onSnapshot(query(collection(db, 'appointments'), orderBy('date')), (snap) => {
+    appointments = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => a.date.localeCompare(b.date) || a.startIdx - b.startIdx);
+    renderAppointments();
+  }, onErr));
+  unsubs.push(onSnapshot(doc(db, 'settings', 'booking'), (snap) => {
+    booking = { ...window.DEFAULT_BOOKING, ...(snap.exists() ? snap.data() : {}) };
+    $('set-capacity').value = booking.capacity;
   }, onErr));
   unsubs.push(onSnapshot(doc(db, 'settings', 'rewards'), (snap) => {
     rules = { ...window.DEFAULT_REWARDS, ...(snap.exists() ? snap.data() : {}) };
@@ -119,10 +131,141 @@ function startListeners() {
 }
 
 // ---------- tabs ----------
-document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
-  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x === t));
-  ['rewards', 'services', 'settings'].forEach((n) => { $('tab-' + n).hidden = n !== t.dataset.tab; });
-}));
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x.dataset.tab === name));
+  ['appointments', 'rewards', 'services', 'settings'].forEach((n) => { $('tab-' + n).hidden = n !== name; });
+}
+document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+// =====================================================================
+// APPOINTMENTS
+// =====================================================================
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const longDate = (key) => { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }); };
+function ago(ts) {
+  if (!ts?.toDate) return 'just now';
+  const s = (Date.now() - ts.toDate().getTime()) / 1000;
+  if (s < 60) return 'just now';
+  if (s < 3600) return Math.floor(s / 60) + ' min ago';
+  if (s < 86400) return Math.floor(s / 3600) + ' h ago';
+  return Math.floor(s / 86400) + ' d ago';
+}
+const STATUS_LABEL = { pending: 'Pending', accepted: 'Accepted', rejected: 'Declined', cancelled: 'Cancelled' };
+
+$('appt-filters').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-filter]'); if (!b) return;
+  apptFilter = b.dataset.filter;
+  document.querySelectorAll('#appt-filters [data-filter]').forEach((x) => x.classList.toggle('on', x === b));
+  renderAppointments();
+});
+
+function renderAppointments() {
+  const today = todayKey();
+  const pending = appointments.filter((a) => a.status === 'pending');
+  $('pending-badge').textContent = pending.length;
+  $('pending-badge').hidden = !pending.length;
+  const list = {
+    pending: () => pending,
+    upcoming: () => appointments.filter((a) => a.status === 'accepted' && a.date >= today),
+    past: () => appointments.filter((a) => a.status === 'accepted' && a.date < today).reverse(),
+    closed: () => appointments.filter((a) => a.status === 'rejected' || a.status === 'cancelled').reverse(),
+  }[apptFilter]();
+  const empty = { pending: 'No requests waiting — you’re all caught up.', upcoming: 'No upcoming accepted appointments.', past: 'No past appointments yet.', closed: 'No declined or cancelled appointments.' };
+  if (!list.length) {
+    $('appt-list').innerHTML = `<div class="${card} text-center py-16"><span class="material-symbols-outlined text-primary/40" style="font-size:48px">event_available</span><p class="text-tertiary mt-4">${empty[apptFilter]}</p></div>`;
+    return;
+  }
+  const groups = [];
+  list.forEach((a) => { const g = groups.at(-1); if (g && g.date === a.date) g.items.push(a); else groups.push({ date: a.date, items: [a] }); });
+  $('appt-list').innerHTML = groups.map((g) => `
+    <div>
+      <p class="font-serif text-xl text-on-background mb-3">${esc(longDate(g.date))}${g.date === today ? ' <span class="text-secondary text-xs font-sans font-bold uppercase tracking-[0.2em] ml-2">Today</span>' : ''}</p>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">${g.items.map(apptCard).join('')}</div>
+    </div>`).join('');
+}
+
+function apptCard(a) {
+  const digits = normPhone(a.phone);
+  const member = digits && members.find((m) => m.id === digits);
+  const passed = a.status === 'pending' && a.date < todayKey();
+  return `<div class="${card} !p-6" data-appt="${esc(a.id)}">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <p class="font-serif text-2xl text-primary leading-tight">${esc(a.timeLabel)}</p>
+        <p class="text-xs text-tertiary/70 mt-1">${a.duration || 0} min · requested ${ago(a.createdAt)}${passed ? ' · <span class="text-error font-semibold">date has passed</span>' : ''}</p>
+      </div>
+      <span class="appt-chip st-${esc(a.status)}">${STATUS_LABEL[a.status] || esc(a.status)}</span>
+    </div>
+    <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <p class="font-semibold text-on-background">${esc(a.name)}</p>
+      ${member ? `<button class="appt-chip st-pending" data-member="${esc(member.id)}" title="Open rewards member"><span class="material-symbols-outlined" style="font-size:13px">loyalty</span>Rewards · ${member.points || 0} pts</button>` : ''}
+    </div>
+    <div class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+      <a class="text-tertiary hover:text-primary" href="tel:${esc(a.phone)}"><span class="material-symbols-outlined" style="font-size:16px">call</span> ${esc(digits ? fmtPhone(digits) : a.phone)}</a>
+      <a class="text-tertiary hover:text-primary" href="sms:${esc(a.phone)}"><span class="material-symbols-outlined" style="font-size:16px">sms</span> Text</a>
+      ${a.email ? `<a class="text-tertiary hover:text-primary break-all" href="mailto:${esc(a.email)}"><span class="material-symbols-outlined" style="font-size:16px">mail</span> ${esc(a.email)}</a>` : ''}
+    </div>
+    <div class="mt-4 space-y-1">
+      ${(a.services || []).map((s) => `<div class="flex justify-between text-sm"><span class="text-tertiary">${esc(s.name)}</span><span class="font-serif font-semibold text-on-background">${money(s.price)}</span></div>`).join('')}
+      <div class="flex justify-between text-sm pt-2 mt-2" style="border-top:1px solid rgba(221,191,196,.25)"><span class="font-bold uppercase tracking-wider text-xs text-secondary">Total</span><span class="font-serif font-bold text-primary">${money(a.total)}</span></div>
+    </div>
+    ${a.notes ? `<p class="mt-3 text-sm text-tertiary italic bg-surface-container-low rounded-xl px-3 py-2">“${esc(a.notes)}”</p>` : ''}
+    ${a.reason ? `<p class="mt-3 text-xs text-tertiary">Reason: ${esc(a.reason)}</p>` : ''}
+    ${a.status === 'pending' ? `<div class="mt-5 flex gap-3 justify-end">
+        <button class="btn btn-soft" data-appt-act="reject">Decline</button>
+        <button class="btn btn-primary" data-appt-act="accept"><span class="material-symbols-outlined" style="font-size:18px">check</span>Accept</button>
+      </div>` : ''}
+    ${a.status === 'accepted' && a.date >= todayKey() ? `<div class="mt-5 flex justify-end"><button class="btn-text btn-danger" data-appt-act="cancel">Cancel appointment</button></div>` : ''}
+  </div>`;
+}
+
+$('appt-list').addEventListener('click', async (e) => {
+  const mb = e.target.closest('[data-member]');
+  if (mb) { $('member-search').value = ''; showTab('rewards'); selectMember(mb.dataset.member); return; }
+  const btn = e.target.closest('[data-appt-act]'); if (!btn) return;
+  const a = appointments.find((x) => x.id === btn.closest('[data-appt]').dataset.appt); if (!a) return;
+  const act = btn.dataset.apptAct;
+  let reason = '';
+  if (act === 'reject' || act === 'cancel') {
+    const r = prompt(`${act === 'reject' ? 'Decline' : 'Cancel'} ${a.name}'s appointment on ${longDate(a.date)}, ${a.timeLabel}?\n\nOptional reason for the customer:`);
+    if (r === null) return;
+    reason = r.trim();
+  }
+  const status = { accept: 'accepted', reject: 'rejected', cancel: 'cancelled' }[act];
+  await busy(btn, async () => {
+    const b = writeBatch(db);
+    b.update(doc(db, 'appointments', a.id), { status, decidedAt: serverTimestamp(), ...(reason ? { reason } : {}) });
+    // Declined/cancelled bookings free up their time on the website.
+    if (status !== 'accepted') (a.slotIds || []).forEach((id) => b.delete(doc(db, 'slots', id)));
+    await b.commit();
+    const sent = await notifyCustomer(a, status, reason);
+    const what = { accepted: 'Accepted', rejected: 'Declined', cancelled: 'Cancelled' }[status];
+    toast(sent === 'sent' ? `${what} — customer emailed.`
+      : sent === 'failed' ? `${what}, but the email failed — please call or text ${a.name}.`
+      : `${what}. ${a.email ? 'Email isn’t set up' : 'No email on file'} — call or text ${a.name}.`, sent === 'failed');
+  });
+});
+
+let emailjsInit = false;
+async function notifyCustomer(a, status, reason) {
+  const C = window.EMAILJS_CFG;
+  if (!a.email) return 'no-email';
+  if (!window.EMAILJS_READY || !window.emailjs) return 'unconfigured';
+  if (!emailjsInit) { window.emailjs.init({ publicKey: C.PUBLIC_KEY }); emailjsInit = true; }
+  const when = `${longDate(a.date)}, ${a.timeLabel}`;
+  const message = status === 'accepted'
+    ? `Your appointment on ${when} is confirmed. We look forward to seeing you!`
+    : `We're sorry — we can't keep your appointment on ${when}.${reason ? ' ' + reason : ''} Please book another time online or call us at 804-882-2942.`;
+  try {
+    await window.emailjs.send(C.SERVICE_ID, C.TEMPLATE_STATUS, {
+      to_name: a.name, to_email: a.email,
+      status: { accepted: 'confirmed', rejected: 'declined', cancelled: 'cancelled' }[status],
+      booking_date: longDate(a.date), booking_time: a.timeLabel,
+      services: (a.services || []).map((s) => s.name).join(', '), message,
+    });
+    return 'sent';
+  } catch (e) { console.error('EmailJS error', e); return 'failed'; }
+}
 
 // =====================================================================
 // REWARDS
@@ -495,6 +638,10 @@ async function changeMemberPhone(oldId, newId, fields) {
 // SERVICES
 // =====================================================================
 $('svc-cat').innerHTML = Object.entries(CATS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
+const DURATIONS = [15, 30, 45, 60, 75, 90, 120];
+const durOptions = (cur) => [...new Set([...DURATIONS, cur])].sort((a, b) => a - b)
+  .map((d) => `<option value="${d}"${d === cur ? ' selected' : ''}>${d} min</option>`).join('');
+$('svc-dur').innerHTML = durOptions(30);
 
 function renderServices() {
   $('seed-box').hidden = services.length > 0;
@@ -504,9 +651,10 @@ function renderServices() {
       <p class="text-secondary font-bold text-xs uppercase tracking-[0.2em] mb-4">${esc(label)}</p>
       ${list.length ? `<div class="space-y-4">${list.map((s, i) => `
         <div class="svc-row grid grid-cols-12 gap-3 sm:gap-4 items-end pb-4" data-id="${esc(s.id)}" style="border-bottom:1px solid rgba(221,191,196,.2)">
-          <div class="e-group col-span-12 sm:col-span-5"><label class="e-label mb-1">Name</label><input class="e-input f-name" value="${esc(s.name)}"/></div>
-          <div class="e-group col-span-6 sm:col-span-3"><label class="e-label mb-1">Category</label><select class="e-input f-cat">${Object.entries(CATS).map(([k, v]) => `<option value="${k}"${k === s.cat ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></div>
-          <div class="e-group col-span-6 sm:col-span-2"><label class="e-label mb-1">Price ($)</label><input class="e-input f-price" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(s.price)}"/></div>
+          <div class="e-group col-span-12 sm:col-span-4"><label class="e-label mb-1">Name</label><input class="e-input f-name" value="${esc(s.name)}"/></div>
+          <div class="e-group col-span-4 sm:col-span-2"><label class="e-label mb-1">Category</label><select class="e-input f-cat">${Object.entries(CATS).map(([k, v]) => `<option value="${k}"${k === s.cat ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></div>
+          <div class="e-group col-span-4 sm:col-span-2"><label class="e-label mb-1">Price ($)</label><input class="e-input f-price" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(s.price)}"/></div>
+          <div class="e-group col-span-4 sm:col-span-2"><label class="e-label mb-1">Duration</label><select class="e-input f-dur">${durOptions(Number(s.duration) || 30)}</select></div>
           <div class="col-span-12 sm:col-span-2 flex items-center justify-end gap-1">
             <label class="flex items-center gap-1.5 text-xs text-tertiary mr-auto sm:mr-1 cursor-pointer" title="Show on website"><input type="checkbox" class="f-active rounded text-primary focus:ring-primary/30" ${s.active !== false ? 'checked' : ''}/>Live</label>
             <button class="p-1.5 rounded-full hover:bg-surface-container disabled:opacity-30" data-svc="up" ${i === 0 ? 'disabled' : ''} title="Move up"><span class="material-symbols-outlined" style="font-size:18px">arrow_upward</span></button>
@@ -547,7 +695,7 @@ $('svc-list').addEventListener('click', async (e) => {
     const cat = row.querySelector('.f-cat').value;
     if (!name) return toast('Service name can’t be empty.', true);
     if (!(price >= 0) || row.querySelector('.f-price').value === '') return toast('Enter a valid price.', true);
-    const patch = { name, price, cat };
+    const patch = { name, price, cat, duration: Number(row.querySelector('.f-dur').value) || 30 };
     if (cat !== s.cat) patch.order = nextOrder(cat);
     await busy(btn, async () => { await updateDoc(doc(db, 'services', s.id), patch); toast(`${name} saved.`); });
   }
@@ -586,7 +734,7 @@ $('add-svc-form').addEventListener('submit', async (e) => {
   let id = slugify(name), n = 2;
   while (services.some((s) => s.id === id)) id = `${slugify(name)}-${n++}`;
   await busy(e.submitter || $('add-svc-form').querySelector('button'), async () => {
-    await setDoc(doc(db, 'services', id), { name, cat, price, order: nextOrder(cat), active: true });
+    await setDoc(doc(db, 'services', id), { name, cat, price, duration: Number($('svc-dur').value) || 30, order: nextOrder(cat), active: true });
     $('svc-name').value = ''; $('svc-price').value = '';
     toast(`${name} added.`);
   });
@@ -599,10 +747,11 @@ $('seed-btn').addEventListener('click', async (e) => {
     window.DEFAULT_SERVICES.forEach((s) => {
       const base = Object.keys(CATS).indexOf(s.cat) * 1000;
       counters[s.cat] = (counters[s.cat] ?? -1) + 1;
-      b.set(doc(db, 'services', s.id), { name: s.name, cat: s.cat, price: s.price, order: base + counters[s.cat], active: true });
+      b.set(doc(db, 'services', s.id), { name: s.name, cat: s.cat, price: s.price, duration: s.duration, order: base + counters[s.cat], active: true });
     });
-    const rs = await getDoc(doc(db, 'settings', 'rewards'));
+    const [rs, bs] = await Promise.all([getDoc(doc(db, 'settings', 'rewards')), getDoc(doc(db, 'settings', 'booking'))]);
     if (!rs.exists()) b.set(doc(db, 'settings', 'rewards'), { ...window.DEFAULT_REWARDS });
+    if (!bs.exists()) b.set(doc(db, 'settings', 'booking'), { ...window.DEFAULT_BOOKING });
     await b.commit();
     toast('Default services loaded.');
   });
@@ -635,5 +784,15 @@ $('settings-form').addEventListener('submit', async (e) => {
   await busy(e.submitter || $('settings-form').querySelector('button'), async () => {
     await setDoc(doc(db, 'settings', 'rewards'), v);
     toast('Reward rules saved.');
+  });
+});
+
+$('booking-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const capacity = Math.trunc(Number($('set-capacity').value));
+  if (!(capacity >= 1 && capacity <= 20)) return toast('Enter a number from 1 to 20.', true);
+  await busy(e.submitter || $('booking-form').querySelector('button'), async () => {
+    await setDoc(doc(db, 'settings', 'booking'), { capacity });
+    toast(`Saved — up to ${capacity} customer${capacity > 1 ? 's' : ''} at the same time.`);
   });
 });
